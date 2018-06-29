@@ -65,47 +65,25 @@ if [ "$action" == 'create' ]
 
 		### create virtual host rules file
 		if ! echo "server {
-			listen   80;
-			root $userDir$rootDir;
-			index index.php index.html index.htm;
-			server_name $domain;
+		listen   80;
+        listen [::]:80;
+		root $userDir$rootDir/public;
+		index index.php index.html index.htm index.nginx-debian.html;
+        autoindex on;			
+        
+        server_name $domain www.$domain;
+		location / {
+            try_files \$uri \$uri/ /index.php?\$query_string;
+        }
 
-			# serve static files directly
-			location ~* \.(jpg|jpeg|gif|css|png|js|ico|html)$ {
-				access_log off;
-				expires max;
-			}
-
-			# removes trailing slashes (prevents SEO duplicate content issues)
-			if (!-d \$request_filename) {
-				rewrite ^/(.+)/\$ /\$1 permanent;
-			}
-
-			# unless the request is for a valid file (image, js, css, etc.), send to bootstrap
-			if (!-e \$request_filename) {
-				rewrite ^/(.*)\$ /index.php?/\$1 last;
-				break;
-			}
-
-			# removes trailing 'index' from all controllers
-			if (\$request_uri ~* index/?\$) {
-				rewrite ^/(.*)/index/?\$ /\$1 permanent;
-			}
-
-			# catch all
-			error_page 404 /index.php;
-
-			location ~ \.php$ {
-				fastcgi_split_path_info ^(.+\.php)(/.+)\$;
-				fastcgi_pass 127.0.0.1:9000;
-				fastcgi_index index.php;
-				include fastcgi_params;
-			}
-
-			location ~ /\.ht {
-				deny all;
-			}
-
+		location ~ \.php$ {
+            try_files \$uri /index.php =404;
+            fastcgi_split_path_info ^(.+\.php)(/.+)$;
+            fastcgi_pass unix:/run/php/php7.1-fpm.sock;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+            include fastcgi_params;
+        }
 		}" > $sitesAvailable$domain
 		then
 			echo -e $"There is an ERROR create $domain file"
@@ -158,22 +136,7 @@ if [ "$action" == 'create' ]
 			rm $sitesAvailable$domain
 		fi
 
-		### check if directory exists or not
-		if [ -d $userDir$rootDir ]; then
-			echo -e $"Delete host root directory ? (s/n)"
-			read deldir
-
-			if [ "$deldir" == 's' -o "$deldir" == 'S' ]; then
-				### Delete the directory
-				rm -rf $userDir$rootDir
-				echo -e $"Directory deleted"
-			else
-				echo -e $"Host directory conserved"
-			fi
-		else
-			echo -e $"Host directory not found. Ignored"
-		fi
-
+		
 		### show the finished message
 		echo -e $"Complete!\nYou just removed Virtual Host $domain"
 		exit 0;
